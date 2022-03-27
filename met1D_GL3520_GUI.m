@@ -155,13 +155,14 @@ if isempty(trackDepths)
     trackDepths = zCrust ; 
 end ; 
 
-HPEFlag = 1 ; 
-if HPEFlag == 1 
+if get(handles.rbRadgenConstant, 'Value')
+    HPEFlag = 1 ;  
     zthislayer1 = str2double(get(handles.txtZbaseRadgenlayer, 'String')) ; 
     Athislayer1 = str2double(get(handles.txtHPRadgenlayer, 'String')) ; 
     zSkin = 0 ; 
     ASurface = 0 ; 
 else 
+    HPEFlag = 2 ;  
     zthislayer1 = 0 ;  
     Athislayer1 = 0 ; 
     zSkin = str2double(get(handles.txtZSkinHP, 'String')) ; 
@@ -1003,19 +1004,45 @@ function bgRadgen_SelectionChangeFcn(hObject, eventdata, handles)
 %	OldValue: handle of the previously selected object or empty if none was selected
 %	NewValue: handle of the currently selected object
 % handles    structure with handles and user data (see GUIDATA)
+%
+%   initialise radgen curve with default parameters 
+deltaz = str2double(get(handles.txtZInc, 'String')) ; 
+maxz = str2double(get(handles.txtZmax, 'String')) ; 
+z = 0:deltaz:maxz ;               
+Tbaselith = str2double(get(handles.txtTbaselith, 'String')) ;
+thickFactor = str2double(get(handles.txtThickFactor, 'String')) ;
+thickFlag = 1 ; 
+zCrust = str2double(get(handles.txtZcrust, 'String')) ; 
+zLith = str2double(get(handles.txtZmax, 'String')) ; 
+k = str2double(get(handles.txtConductivity, 'String')) ; 
+
 %   if constant
 if strcmp(get(eventdata.NewValue,'Tag'), 'rbRadgenConstant') 
     set(handles.txtZbaseRadgenlayer,'Enable','on') ; 
     set(handles.txtHPRadgenlayer,'Enable','on') ; 
     set(handles.txtZSkinHP,'Enable','off') ; 
     set(handles.txtHPExponentialSurface,'Enable','off') ; 
+
+    HPEFlag = 1 ; 
+    zthislayer1 = str2double(get(handles.txtZbaseRadgenlayer, 'String')) ; 
+    Athislayer1 = str2double(get(handles.txtHPRadgenlayer, 'String')) ; 
+    [Ainitial, Athickened, ~, ~] ...
+                = geothermRGPLayered_gui(z, Tbaselith-273, thickFactor, thickFlag, zCrust, zLith, k, zthislayer1, Athislayer1) ; 
 else 
 %   if exponential 
     set(handles.txtZSkinHP,'Enable','on') ; 
     set(handles.txtHPExponentialSurface,'Enable','on') ; 
     set(handles.txtZbaseRadgenlayer,'Enable','off') ; 
     set(handles.txtHPRadgenlayer,'Enable','off') ; 
+    
+    HPEFlag = 2 ; 
+    zSkin = str2double(get(handles.txtZSkinHP, 'String')) ; 
+    ASurface = str2double(get(handles.txtHPExponentialSurface, 'String')) ; 
+    [Ainitial, Athickened, ~, ~] ...
+            = geothermRGPExponential_gui(z, Tbaselith-273, k, thickFactor, thickFlag, zCrust, zLith, zSkin, ASurface) ; 
 end ; 
+Athickened = 0 ; 
+plotRadgenCurves(Ainitial, z, zCrust*1.1, handles.axesRadgen) ; 
 
 % --- If Enable == 'on', executes on mouse press in 5 pixel border.
 % --- Otherwise, executes on mouse press in 5 pixel border or over pbRun.

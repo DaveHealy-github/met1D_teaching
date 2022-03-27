@@ -61,6 +61,8 @@ disp(' ') ;
 disp('*** Started HC10merge_gui.m...') ; 
 disp(' ') ; 
 
+hWait = waitbar(0, 'Calculating geotherms and P-T-t paths...', 'Name', 'met1D') ;
+
 numz = maxz / deltaz ;              %   number of depths  
 z = 0:deltaz:maxz ;                 %   array of depths 
  
@@ -95,7 +97,7 @@ trackTP = zeros(length(plotTimes), length(trackDepths)) ;
 %   calculate steady-state geotherms, initial and thickened (T in deg C)
 if HPEFlag == 1 
     [Ainitial, Athickened, Tinitial, Tthickened] ...
-                = geothermRGPLayered_gui(z, Tbaselith-273, thickFactor, thickFlag, zCrust, zLith, k, zthislayer1, Athislayer1, zShear) ; 
+            = geothermRGPLayered_gui(z, Tbaselith-273, thickFactor, thickFlag, zCrust, zLith, k, zthislayer1, Athislayer1, zShear) ; 
 else 
     [Ainitial, Athickened, Tinitial, Tthickened] ...
             = geothermRGPExponential_gui(z, Tbaselith-273, k, thickFactor, thickFlag, zCrust, zLith, zSkin, ASurface) ; 
@@ -186,11 +188,11 @@ for tcalc = 0:deltat:maxt
     %   check if we need to save this one...
     for i = 1:size(plotTimes,2)
         if tcalc == plotTimes(i)
-            disp( strcat( 'Saving geotherm at: ', num2str(tcalc), ' My' ) ) ; 
+            disp(['Saving geotherm at: ', num2str(tcalc), ' My']) ; 
             plotGeotherms(i, 1:numz+1) = T - 273 ; %  plot in deg C
             iqs = iqs + 1 ; 
             qs(iqs) = k * ( T(2) - 273  ) / ( z(2) * 1e3 ) ; 
-            disp( strcat( '*** Surface heat flow = ', num2str(qs(iqs)*1e3), ' mW m^-2' ) ) ; 
+            disp(['*** Surface heat flow = ', num2str(qs(iqs)*1e3, '%3.2f'), ' mW m^-2']) ; 
             disp(' ') ; 
             break ;
         end ; 
@@ -244,7 +246,13 @@ for tcalc = 0:deltat:maxt
     
     Tsave(:, it) = T - 273 ; 
     
+    if mod((tcalc/maxt)*100, 10) == 0 
+        waitbar(tcalc/maxt, hWait, 'Calculating geotherms and P-T-t paths...') ; 
+    end ; 
+    
 end ; 
+
+close(hWait) ; 
 
 %   UHT conditions box 
 g = 9.81 ; 
@@ -254,13 +262,12 @@ zbox = ( ( Pbox .* 1e8 ) ./ ( g * rho ) ) ./ 1e3 ;
 AndT = [ 200, 520 ] ; 
 AndD = [ 0, 15 ] ; 
 KyaT = [ 520, 800 ] ; 
-KyaD = [ 15, 40 ]; 
-SilT = [ 520, 750 ]; 
+KyaD = [ 15, 40 ] ; 
+SilT = [ 520, 750 ] ; 
 SilD = [ 15, 0 ] ; 
 
 %   display the results 
-scrsz = get(0, 'ScreenSize') ;
-hfig1 = figure('OuterPosition', [1 scrsz(4)/2 scrsz(4)/2 scrsz(4)/2], 'Name', 'Heat production, lithosphere') ; 
+hfig1 = figure('Name', 'Heat production, lithosphere') ; 
 set(gcf, 'PaperPositionMode', 'manual') ; 
 set(gcf, 'PaperUnits', 'inches') ; 
 set(gcf, 'PaperPosition', [ 0.25 0.25 5 5 ]) ; 
@@ -286,7 +293,7 @@ legend('Initial', ...
 guiPrint(hfig1, 'met1Dheatprodlith') ; 
    
 %   plot geotherm 
-hfig2 = figure('OuterPosition', [1 scrsz(4)/2 scrsz(4)/2 scrsz(4)/2], 'Name', 'Geotherms, lithosphere') ; 
+hfig2 = figure('Name', 'Geotherms, lithosphere') ; 
 set(gcf, 'PaperPositionMode', 'manual') ; 
 set(gcf, 'PaperUnits', 'inches') ; 
 set(gcf, 'PaperPosition', [ 0.25 0.25 5 5 ]) ; 
@@ -321,7 +328,7 @@ legend(plotTimesStr, 'Location', 'Southwest') ;
 guiPrint(hfig2, 'met1Dgeothermlith') ; 
 
 %   plot P-T-t paths 
-hfig3 = figure('OuterPosition', [1 scrsz(4)/2 scrsz(4)/2 scrsz(4)/2], 'Name', 'P-T-t tracks, lithosphere') ; 
+hfig3 = figure('Name', 'P-T-t tracks, lithosphere') ; 
 set(gcf, 'PaperPositionMode', 'manual') ; 
 set(gcf, 'PaperUnits', 'inches') ; 
 set(gcf, 'PaperPosition', [ 0.25 0.25 5 5 ]) ; 
@@ -359,7 +366,46 @@ axis square ;
 legend(plotDepthsStr, 'Location', 'Southwest') ; 
 guiPrint(hfig3, 'met1DPTtlith') ; 
    
-hfig4 = figure('OuterPosition', [1 scrsz(4)/2 scrsz(4)/2 scrsz(4)/2], 'Name', 'Heat production, crust') ; 
+%   plot P-T-t paths 
+hfig3a = figure('Name', 'P-T-t tracks, lithosphere') ; 
+set(gcf, 'PaperPositionMode', 'manual') ; 
+set(gcf, 'PaperUnits', 'inches') ; 
+set(gcf, 'PaperPosition', [ 0.25 0.25 5 5 ]) ; 
+plotDepthsStr = {'Thickened geotherm'} ; 
+hold on ; 
+plot(Tthickened, z, '-b', 'LineWidth', 1) ; 
+for i = 1:length(trackDepths)
+    plot(trackT(:,i), trackDepthPTt(:,i), '-', 'LineWidth', 1) ; 
+    plotDepthsStr(i+1) = cellstr([ 'Initial depth ', num2str(trackDepths(i)), ' km' ]) ;  
+end ; 
+ax = gca ; 
+co = ax.ColorOrder ; 
+for i = 1:length(trackDepths)
+    plot(trackTP(:,i)', trackDepthPTtP(:,i)', 's', 'LineWidth', 1, ...
+                'MarkerSize', 7, 'MarkerEdgeColor', co(i,:), 'MarkerFaceColor', co(i,:)) ; 
+end ; 
+plot(Tbox, zbox, '-k', 'LineWidth', 1) ; 
+hold off ; 
+% set(gca, 'XAxisLocation', 'top') ; 
+% set(gca, 'YDir', 'reverse') ; 
+xlabel('Temperature, ºC') ;
+set(gca,'XTick', [0 500 1000 1500]) ;
+xlim([0 1200]) ; 
+ylabel('Depth, km') ; 
+ylim([0 maxz]) ; 
+yyaxis right ; 
+ylabel('Pressure, kilobar') ; 
+ylim([0 maxz*1e3*rho*g*1e-8]) ; 
+% set(gca, 'YDir', 'reverse') ; 
+ax = gca ; 
+ax.YColor = 'k' ; 
+grid on ; 
+box on ; 
+axis square ; 
+legend(plotDepthsStr, 'Location', 'Southwest') ; 
+guiPrint(hfig3a, 'met1DPTtlith2') ; 
+
+hfig4 = figure('Name', 'Heat production, crust') ; 
 set(gcf, 'PaperPositionMode', 'manual') ; 
 set(gcf, 'PaperUnits', 'inches') ; 
 set(gcf, 'PaperPosition', [ 0.25 0.25 5 5 ]) ; 
@@ -384,7 +430,7 @@ legend('Initial', ...
 guiPrint(hfig4, 'met1Dheatprodcrust') ; 
 
 %   plot geotherm, zoomed  
-hfig5 = figure('OuterPosition', [1 scrsz(4)/2 scrsz(4)/2 scrsz(4)/2], 'Name', 'Geotherms, crust') ; 
+hfig5 = figure('Name', 'Geotherms, crust') ; 
 set(gcf, 'PaperPositionMode', 'manual') ; 
 set(gcf, 'PaperUnits', 'inches') ; 
 set(gcf, 'PaperPosition', [ 0.25 0.25 5 5 ]) ; 
@@ -419,7 +465,7 @@ legend(plotTimesStr, 'Location', 'Southeast', 'FontSize', 8) ;
 guiPrint(hfig5, 'met1Dgeothermcrust') ; 
 
 %   plot P-T-t paths 
-hfig6 = figure('OuterPosition', [1 scrsz(4)/2 scrsz(4)/2 scrsz(4)/2], 'Name', 'P-T-t tracks, crust') ; 
+hfig6 = figure('Name', 'P-T-t tracks, crust') ; 
 set(gcf, 'PaperPositionMode', 'manual') ; 
 set(gcf, 'PaperUnits', 'inches') ; 
 set(gcf, 'PaperPosition', [ 0.25 0.25 5 5 ]) ; 
@@ -460,7 +506,46 @@ axis square ;
 legend(plotDepthsStr, 'Location', 'Southeast', 'FontSize', 8) ; 
 guiPrint(hfig6, 'met1DPTtcrust') ; 
    
-hfig7 = figure('OuterPosition', [1 scrsz(4)/2 scrsz(4)/2 scrsz(4)/2], 'Name', 'Temperature in depth and time') ; 
+%   plot P-T-t paths 
+hfig6a = figure('Name', 'P-T-t tracks, crust') ; 
+set(gcf, 'PaperPositionMode', 'manual') ; 
+set(gcf, 'PaperUnits', 'inches') ; 
+set(gcf, 'PaperPosition', [ 0.25 0.25 5 5 ]) ; 
+clear plotDepthsStr ; 
+hold on ; 
+% plot(Tthickened, z, '-b', 'LineWidth', 1) ; 
+for i = 1:length(trackDepths)
+    plot(trackT(:,i), trackDepthPTt(:,i)*1e3*rho*g*1e-8, '-', 'LineWidth', 1) ; 
+    plotDepthsStr(i) = cellstr([ 'Initial depth ', num2str(trackDepths(i)), ' km' ]) ;  
+end ; 
+ax = gca ; 
+co = ax.ColorOrder ; 
+for i = 1:length(trackDepths)
+    plot(trackTP(:,i)', trackDepthPTtP(:,i)'*1e3*rho*g*1e-8, 's', 'LineWidth', 1, ...
+                'MarkerSize', 7, 'MarkerEdgeColor', co(i,:), 'MarkerFaceColor', co(i,:)) ; 
+end ; 
+plot(Tbox, zbox, '-k', 'LineWidth', 1) ; 
+plot(AndT, AndD*1e3*rho*g*1e-8, ':k', 'LineWidth', 0.75) ; 
+plot(KyaT, KyaD*1e3*rho*g*1e-8, ':k', 'LineWidth', 0.75) ; 
+plot(SilT, SilD*1e3*rho*g*1e-8, ':k', 'LineWidth', 0.75) ; 
+hold off ; 
+xlabel('Temperature, ºC') ;
+xlim([0 1000]) ; 
+set(gca,'XTick', [0 300 600 900]) ;
+ylabel('Pressure, kilobar') ; 
+ylim([0 zCrust*thickFactor*1.2*1e3*rho*g*1e-8]) ; 
+yyaxis right ; 
+ylabel('Depth, km') ; 
+ylim([0 zCrust*thickFactor*1.2]) ; 
+ax = gca ; 
+ax.YColor = 'k' ; 
+grid on ; 
+box on ; 
+axis square ; 
+legend(plotDepthsStr, 'Location', 'Northeast', 'FontSize', 8) ; 
+guiPrint(hfig6a, 'met1DPTtcrust2') ; 
+   
+hfig7 = figure('Name', 'Temperature in depth and time') ; 
 set(gcf, 'PaperPositionMode', 'manual') ; 
 set(gcf, 'PaperUnits', 'inches') ; 
 set(gcf, 'PaperPosition', [ 0.25 0.25 5 5 ]) ; 
@@ -487,7 +572,7 @@ ylim([0 rho*g*zCrust*thickFactor*1e3/1e8]) ;
 box on ; 
 guiPrint(hfig7, 'met1DPTempdepthtimecrust') ; 
 
-hfig8 = figure('OuterPosition', [1 scrsz(4)/2 scrsz(4)/2 scrsz(4)/2], 'Name', 'Surface heat flow over time') ; 
+hfig8 = figure('Name', 'Surface heat flow over time') ; 
 set(gcf, 'PaperPositionMode', 'manual') ; 
 set(gcf, 'PaperUnits', 'inches') ; 
 set(gcf, 'PaperPosition', [ 0.25 0.25 5 5 ]) ; 
@@ -502,7 +587,7 @@ ylim([0 max(qs*1e3)*1.2]) ;
 guiPrint(hfig8, 'met1DPSurfaceheatflowtime') ; 
 
 if Lmelt > 0 
-    hfig9 = figure('OuterPosition', [1 scrsz(4)/2 scrsz(4)/2 scrsz(4)/2], 'Name', 'Melting profiles') ; 
+    hfig9 = figure('Name', 'Melting profiles') ; 
     set(gcf, 'PaperPositionMode', 'manual') ; 
     set(gcf, 'PaperUnits', 'inches') ; 
     set(gcf, 'PaperPosition', [ 0.25 0.25 5 5 ]) ; 
